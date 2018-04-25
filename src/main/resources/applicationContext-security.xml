@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>  
+<beans xmlns="http://www.springframework.org/schema/beans"  
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"  
+           xmlns:context="http://www.springframework.org/schema/context"   
+           xmlns:mvc="http://www.springframework.org/schema/mvc"  
+           xmlns:sec="http://www.springframework.org/schema/security"
+           xsi:schemaLocation="http://www.springframework.org/schema/beans  
+                    http://www.springframework.org/schema/beans/spring-beans-3.2.xsd  
+                    http://www.springframework.org/schema/context  
+                    http://www.springframework.org/schema/context/spring-context-3.2.xsd  
+                    http://www.springframework.org/schema/mvc  
+                    http://www.springframework.org/schema/mvc/spring-mvc-3.2.xsd  
+                    http://www.springframework.org/schema/security
+                    http://www.springframework.org/schema/security/spring-security-3.2.xsd
+                  ">  
+            <sec:http pattern="/login.jsp" security="none"/>
+            <sec:http pattern="/noright.jsp" security="none"/>
+            <sec:http pattern="/index.jsp" security="none"/>
+            <sec:http pattern="/login_failure.jsp" security="none"></sec:http>
+            <!--1、 access-denied-page权限不足跳转页面
+                2、default-target-url 默认登录成功之后跳转的请求
+                3、authentication-failure-url 登录失败之后跳转的请求
+                4、login-processing-url 设置登录请求url （默认是/j_spring_security_check）
+             -->
+          <sec:http  access-denied-page="/noright.jsp">
+         	<sec:intercept-url pattern="/*" access="ROLE_ADMIN" />
+           <sec:form-login login-page="/login.jsp" 
+           login-processing-url="/processLogin"
+           username-parameter="username" 
+           password-parameter="password" 
+           default-target-url="/index.jsp"
+           authentication-failure-url="/login_failure.jsp"
+           />
+           <sec:session-management >
+             <sec:concurrency-control max-sessions="1"/>
+           </sec:session-management>
+           <sec:custom-filter ref="myfilter" before="FILTER_SECURITY_INTERCEPTOR"/>
+         </sec:http>  
+         
+         <bean id="myfilter" class="com.greencloud.filter.MyFilterSecurityInterceptor">
+         	 <property name="authenticationManager" ref="authenticationManagerBean" />  
+ 			 <property name="accessDecisionManager" ref="accessDecisionManagerBean" />  
+			 <property name="securityMetadataSource" ref="securityMetadataSourceBean" />  
+         </bean> 
+         <!-- alias 不能改为id ？WHY? -->
+         <sec:authentication-manager alias="authenticationManagerBean" >
+           <sec:authentication-provider user-service-ref="myUserDetailsService"/>
+         </sec:authentication-manager> 
+         
+         <!-- 在这个类中，你就可以从数据库中读入用户的密码，角色信息，是否锁定，账号是否过期等 -->
+         <bean id="myUserDetailsService" class="com.greencloud.userdetailService.MyUserDetailService"></bean>
+        <!-- 访问决策器，决定某个用户具有的角色，是否有足够的权限去访问某个资源 -->
+         <bean id="accessDecisionManagerBean" class="com.greencloud.accessDecision.MyAccessDecisionManager"></bean>
+        <!-- 资源源数据定义，将所有的资源和权限对应关系建立起来，即定义某一资源可以被哪些角色访问     -->
+         <bean id="securityMetadataSourceBean" class="com.greencloud.metaDatasource.MyInvocationSecurityMetadataSource"></bean>
+         
+        <!-- 
+        1、容器启动(MyInvocationSecurityMetadataSource：loadResourceDefine加载系统资源与权限列表)
+		2、用户发出请求
+		3、过滤器拦截(MyFilterSecurityInterceptor:doFilter)
+		4、验证并获取当前用户权限(MyUserDetailService:loadUserByUsername)
+		5、取得请求资源所需权限(MyInvocationSecurityMetadataSource:getAttributes)
+		6、匹配用户拥有权限和请求权限(MyAccessDecisionManager:decide)，如果用户没有相应的权限，执行第5步，否则执行第7步
+		7、登录
+		8、重复5、6
+         -->
+</beans>
